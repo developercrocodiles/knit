@@ -662,3 +662,29 @@ jobs:
       # Every @Preview has its screenshot test: a preview added or renamed without a regenerate fails here.
       - name: Check app/src/screenshotTest/ wrappers
         run: python3 scripts/gen-screenshot-tests.py --check
+  release-build:
+    name: Build release APK (unsigned)
+    runs-on: ubuntu-latest
+    # No signing key here: `:app:assembleRelease` builds unsigned when keystore.properties / KNIT_SIGNING_*
+    # creds are absent (app/build.gradle.kts signingConfigs). R8 still shrinks/obfuscates release, so this
+    # exercises the full release pipeline minus the signature — exactly the F-Droid path, which publishes
+    # unsigned APKs (apksigcopier re-signs with fdroiddata's key). No secrets, no release environment.
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools # NOT the default `tools platform-tools` — see ACTION PINS above
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Assemble unsigned release APK
+        run: ./gradlew :app:assembleRelease --stacktrace --console=plain
+      - name: Upload release APK
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-unsigned-apk
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: ignore
