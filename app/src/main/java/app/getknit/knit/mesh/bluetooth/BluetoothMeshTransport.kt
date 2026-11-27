@@ -1495,12 +1495,29 @@ class BluetoothMeshTransport internal constructor(
         }
     }
 
-    /** A new L2CAP responder server, or null when the stack would not open one. */
+    /** A new data-channel responder server. API 29+ uses an L2CAP CoC server socket (a fresh PSM per
+     *  rotation); API < 29 has no app-visible L2CAP data channel, so it falls back to an
+     *  insecure RFCOMM server socket on fixed channel 1 (pairless, works on Android 9
+     *  without a pairing dialog). Returns null when the radio itself is absent. */
+    @Suppress("NewApi")
     private fun listenL2cap(): BluetoothServerSocket? {
         val a = adapter ?: return null
-        return runCatching { a.listenUsingInsecureL2capChannel() }
-            .onFailure { Log.w(TAG, "L2CAP listen failed", it) }
-            .getOrNull()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                a.listenUsingInsecureL2capChannel()
+            } catch (e: Exception) {
+                Log.w(TAG, "L2CAP listen failed", e)
+                null
+            }
+        } else {
+            val uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB") // Serial Port Service Class UUID
+            try {
+                a.listenUsingInsecureRfcommWithServiceRecord("Knit", uuid)
+            } catch (e: Exception) {
+                Log.w(TAG, "RFCOMM listen failed", e)
+                null
+            }
+        }
     }
 
     /** Closes [ss] (a throwaway, a server whose grace ended, every server at teardown) and ends its accept loop. */
@@ -4045,14 +4062,19 @@ class BluetoothMeshTransport internal constructor(
         // A tag dial arms its channel unnamed: the reply's id is unproven (`LinkHandshake.dialTagPlain`). It forgets the GATT
         // payload it was dialed from when it fails before its channel opens, as a clear dial does (rule 1, ADR
         // 2026-11.89gg): a blinding iPhone that restarted listens on a new PSM.
-        val named = key.takeIf { !form.blinded }
-        scope.launch(Dispatchers.IO) {
-            val startedAt = elapsed()
             val socket =
-                runCatching { device.createInsecureL2capChannel(psm) }
-                    .getOrElse { t ->
-                        return@launch failConnect(dialKey, ConnectFailClassifier.classify(t), startedAt, t, device, dial = dial)
-                    }
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                    val uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+                    runCatching { device.createInsecureRfcommSocketToServiceRecord(uuid) }
+                        .getOrElse { t ->
+                            return@launch failConnect(dialKey, ConnectFailClassifier.classify(t), startedAt, t, device, dial = dial)
+                        }
+                } else {
+                    runCatching { device.createInsecureL2capChannel(psm) }
+                        .getOrElse { t ->
+                            return@launch failConnect(dialKey, ConnectFailClassifier.classify(t), startedAt, t, device, dial = dial)
+                        }
+                }
             // Time-box the blocking connect(): on stall, give up this peer's inFlight slot at the timeout so the
             // scan (paused while any connect is in flight) resumes promptly — instead of after connect() finally
             // unwinds. Closing the socket is best-effort only: on some stacks (the API-30 device's Qualcomm

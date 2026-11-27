@@ -375,12 +375,12 @@ android {
 
     defaultConfig {
         applicationId = "app.getknit.knit"
-        // minSdk 29 is the shared data-path floor: BLE L2CAP CoC and the Wi-Fi Aware NDP
+        // minSdk 28: the app installs and runs on Android 9. Bluetooth LE discovery and Wi-Fi Direct calling work on 28; the Bluetooth data plane degrades to RFCOMM below API 29 (L2CAP CoC is API 29+), and Wi-Fi Aware mesh stays dark on 28 (NDP is API 31+). Neither omission crashes anything: BLE L2CAP CoC and the Wi-Fi Aware NDP
         // (WifiAwareNetworkSpecifier.Builder) are both API 29. Both radios run on 29+. Wi-Fi Aware uses
         // Instant Communication Mode + NEARBY_WIFI_DEVICES on 33+ and ACCESS_FINE_LOCATION (no ICM) on 29-32;
         // BLE uses the split BLUETOOTH_* perms on 31+ and legacy BLUETOOTH/BLUETOOTH_ADMIN on 29-30. Location
         // is confined to 29-32 (maxSdkVersion 32); 33+ stays location-free.
-        minSdk = 29
+        minSdk = 28
         targetSdk = 36
         // knit.versionName in gradle.properties is the source of truth; the code is derived from it (see
         // knitVersionCode above, ADR 2026-11.7t9z).

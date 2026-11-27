@@ -331,8 +331,8 @@ enum class ConnectFailReason {
     /** The socket connected but the identity (HELLO) exchange failed. */
     HANDSHAKE,
 
-    /** Any other/unclassified failure — see the logged throwable. */
-    OTHER,
+    /** The peer's OS cannot open the data channel (API < 29 has no L2CAP CoC). */
+    UNSUPPORTED,
 }
 
 /**

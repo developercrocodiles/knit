@@ -1,8 +1,7 @@
 package app.getknit.knit
 
 import android.content.Intent
-import android.net.Uri
-import android.os.Bundle
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import android.view.View
@@ -171,7 +170,9 @@ class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
     @OptIn(ExperimentalComposeUiApi::class)
     private fun disableContentCapture() {
-        getSystemService(ContentCaptureManager::class.java)?.isContentCaptureEnabled = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getSystemService(ContentCaptureManager::class.java)?.isContentCaptureEnabled = false
+        }
         ComposeContentCaptureManager.isEnabled = false
     }
 
